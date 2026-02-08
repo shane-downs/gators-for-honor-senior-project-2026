@@ -14,11 +14,12 @@ import { Button } from "@/components/ui/button";
 interface NavLink {
     label: string;
     href: string;
+    target?: string;
 }
 
 const NAV_LINKS: NavLink[] = [
     { label: "Home", href: "/" },
-    { label: "Documentation", href: "https://github.com/shane-downs/gators-for-honor-senior-project-2026.git" },
+    { label: "Documentation", href: "https://github.com/shane-downs/gators-for-honor-senior-project-2026.git", target: "_blank" },
     { label: "Support", href: "mailto:wilson.goins@ufl.edu, shane.downs@ufl.edu" },
     { label: "About Us", href: "/about" },
 ];
@@ -57,6 +58,7 @@ export default function Header() {
                             <Link
                                 key={link.label}
                                 href={link.href}
+                                target={link.target}
                                 className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-400 transition-all hover:bg-white/5 hover:text-white"
                             >
                                 {link.label}
@@ -101,6 +103,7 @@ export default function Header() {
                                 <Link
                                     key={link.label}
                                     href={link.href}
+                                    target={link.target}
                                     className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:bg-white/5 hover:text-white"
                                 >
                                     {link.label}

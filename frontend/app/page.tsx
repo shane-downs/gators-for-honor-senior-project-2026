@@ -157,7 +157,7 @@ function HeroSection() {
                     size="lg"
                     className="rounded-2xl border-white/10 bg-white/[0.03] px-8 font-semibold text-slate-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
                 >
-                    <Link href="https://github.com/shane-downs/gators-for-honor-senior-project-2026.git">View Documentation</Link>
+                    <Link href="https://github.com/shane-downs/gators-for-honor-senior-project-2026.git" target="_blank">View Documentation</Link>
                 </Button>
             </div>  
 
@@ -255,7 +255,7 @@ function Footer() {
           </span>
                 </div>
                 <div className="flex gap-6 text-xs text-slate-600">
-                    <a href="https://github.com/shane-downs/gators-for-honor-senior-project-2026.git" className="transition hover:text-slate-400">Documentation</a>
+                    <a href="https://github.com/shane-downs/gators-for-honor-senior-project-2026.git" target="_blank" className="transition hover:text-slate-400">Documentation</a>
                     <a href="mailto:wilson.goins@ufl.edu, shane.downs@ufl.edu" className="transition hover:text-slate-400">Contact</a>
                     <a href="/about" className="transition hover:text-slate-400">About Us</a>
                 </div>
