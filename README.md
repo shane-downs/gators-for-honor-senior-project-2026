@@ -48,12 +48,12 @@ cd gators-for-honor-senior-project-2026
 cd frontend
 npm install
 
+# Set up environment variables 
+cp .env.example .env.local
+
 # Install backend dependencies
 cd ../backend
 npm install
-
-# Set up environment variables
-cp .env.example .env
 
 # Run development servers
 cd frontend

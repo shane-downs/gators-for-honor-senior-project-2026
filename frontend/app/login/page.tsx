@@ -35,8 +35,11 @@ export default function LoginPage() {
     const handleLogin = useCallback(() => {
         const state = generateState();
 
-        // store state in sessionStorage so we can verify it on callback for CSRF protection
+        // store state in sessionStorage so we can verify it on callback for CSRF protection on client side
         sessionStorage.setItem("canvas_oauth_state", state);
+
+        // also store in an httpOnly cookie for the server-side check
+        document.cookie = `canvas_oauth_state=${state}; path=/; max-age=600; SameSite=Lax`;
 
         // redirect the browser to Canvas's authorization page.
         window.location.replace(buildCanvasAuthUrl(state));

@@ -22,13 +22,29 @@ interface CanvasErrorResponse {
 
 export async function POST(request: NextRequest) {
     try {
-        // extract the authorization code from the request body
-        const { code } = await request.json();
+        // extract the authorization code and state from the request body
+        const { code, state } = await request.json();
 
         if (!code || typeof code !== "string") {
             return NextResponse.json(
                 { error: "Missing or invalid authorization code." },
                 { status: 400 }
+            );
+        }
+
+        if (!state || typeof state !== "string") {
+            return NextResponse.json(
+                { error: "Missing OAuth state parameter." },
+                { status: 400 }
+            );
+        }
+
+        // read the state we stored in the cookie before redirecting to Canvas
+        const storedState = request.cookies.get("canvas_oauth_state")?.value;
+        if (!storedState || storedState !== state) {
+            return NextResponse.json(
+                { error: "OAuth state mismatch. Please try logging in again." },
+                { status: 403 }
             );
         }
 
@@ -77,7 +93,7 @@ export async function POST(request: NextRequest) {
             maxAge:   tokenData.expires_in,   // 3600 seconds = 1 hour
         });
 
-        // Refresh token cookie, which is to get new access tokens
+        // refresh token cookie, which is to get new access tokens
         response.cookies.set("canvas_refresh_token", tokenData.refresh_token, {
             httpOnly: true,
             secure:   process.env.NODE_ENV === "production",
@@ -94,6 +110,8 @@ export async function POST(request: NextRequest) {
             path:     "/",
             maxAge:   tokenData.expires_in,
         });
+
+        response.cookies.delete("canvas_oauth_state");
 
         return response;
 

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import Header from "@/components/ui/header";
 import { FaLinkedin, FaGithub } from "react-icons/fa";
 import { HiOutlineAcademicCap, HiOutlineCode } from "react-icons/hi";
@@ -27,7 +26,7 @@ const teamMembers = [
 export default function AboutPage() {
   return (
     <div>
-        < Header />
+        <Header />
         <main className="min-h-screen bg-[#0a0e1a] text-white">
         {/* ── Hero Section ── */}
         <section className="relative overflow-hidden pt-32 pb-20 px-6">

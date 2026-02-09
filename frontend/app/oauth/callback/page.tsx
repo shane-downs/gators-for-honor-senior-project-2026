@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { Shield, Loader2, AlertCircle } from "lucide-react";
+import Link from "next/link";
 
-export default function OAuthCallbackPage() {
+function OAuthCallbackContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
@@ -57,7 +57,7 @@ export default function OAuthCallbackPage() {
                 const response = await fetch("/api/auth/callback", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code }),
+                    body: JSON.stringify({ code, state }),
                 });
 
                 if (!response.ok) {
@@ -200,5 +200,13 @@ export default function OAuthCallbackPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function OAuthCallbackPage() {
+    return (
+        <Suspense>
+            <OAuthCallbackContent />
+        </Suspense>
     );
 }

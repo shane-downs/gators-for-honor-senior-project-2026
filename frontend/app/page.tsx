@@ -256,7 +256,7 @@ function Footer() {
                 </div>
                 <div className="flex gap-6 text-xs text-slate-600">
                     <a href="https://github.com/shane-downs/gators-for-honor-senior-project-2026.git" target="_blank" className="transition hover:text-slate-400">Documentation</a>
-                    <a href="mailto:wilson.goins@ufl.edu, shane.downs@ufl.edu" className="transition hover:text-slate-400">Contact</a>
+                    <a href="mailto:wilson.goins@ufl.edu,shane.downs@ufl.edu" className="transition hover:text-slate-400">Contact</a>
                     <a href="/about" className="transition hover:text-slate-400">About Us</a>
                 </div>
             </div>
