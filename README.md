@@ -1,6 +1,7 @@
 # Canvas SEB Exam Creator
 
 A middleware application that simplifies the creation of Safe Exam Browser (SEB) proctored exams in Canvas LMS at the University of Florida.
+https://gatorsforhonor.vercel.app
 
 ## Overview
 
@@ -12,10 +13,9 @@ This tool streamlines the fragmented workflow of setting up SEB-proctored exams 
 ## Tech Stack
 
 **Frontend:**
-- React 18 + TypeScript
+- Next.js + TypeScript
 - Tailwind CSS
-- React Router
-- TanStack Query
+- Shadcn Component Library
 
 **Backend:**
 - Node.js + Express
@@ -56,8 +56,8 @@ npm install
 cp .env.example .env
 
 # Run development servers
-cd frontend/canvas-seb-creator
-npm start
+cd frontend
+npm run dev
 ```
 
 ## Features
