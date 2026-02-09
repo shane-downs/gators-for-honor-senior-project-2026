@@ -1,18 +1,5 @@
 "use client";
 
-/**
- * /app/oauth/callback/page.tsx
- *
- * Canvas OAuth 2.0 — Callback Handler
- * ────────────────────────────────────
- * Canvas redirects here after the user authorizes (or denies) access.
- * This page:
- *   1. Checks for an error param (user denied access)
- *   2. Verifies the state param matches what we stored (CSRF protection)
- *   3. Sends the authorization code to /api/auth/callback for token exchange
- *   4. On success, redirects to /dashboard
- */
-
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -30,7 +17,7 @@ export default function OAuthCallbackPage() {
         const state = searchParams.get("state");
         const error = searchParams.get("error");
 
-        // ── Canvas returned an error (e.g. user denied access) ──────
+        // if Canvas returned an error (e.g. user denied access) 
         if (error) {
             setStatus("error");
             setErrorMessage(
@@ -41,14 +28,14 @@ export default function OAuthCallbackPage() {
             return;
         }
 
-        // ── No code present — shouldn't happen, but handle it ───────
+        // if no code present (which should never happen)
         if (!code) {
             setStatus("error");
             setErrorMessage("No authorization code received from Canvas.");
             return;
         }
 
-        // ── CSRF check — verify state matches what we stored ────────
+        // verify state matches what we stored for CSRF protection
         const storedState = sessionStorage.getItem("canvas_oauth_state");
 
         if (!state || state !== storedState) {
@@ -61,10 +48,10 @@ export default function OAuthCallbackPage() {
             return;
         }
 
-        // State is valid — clean it up.
+        // if state is valid, clean it up.
         sessionStorage.removeItem("canvas_oauth_state");
 
-        // ── Exchange the code for tokens ────────────────────────────
+        // exchange code for access token
         async function exchangeCode() {
             try {
                 const response = await fetch("/api/auth/callback", {
@@ -79,8 +66,7 @@ export default function OAuthCallbackPage() {
                 }
 
                 setStatus("success");
-                setTimeout(() => router.push("/dashboard"), 800);
-
+                setTimeout(() => router.replace("/dashboard"), 800);
             } catch (err) {
                 setStatus("error");
                 setErrorMessage(
@@ -94,7 +80,6 @@ export default function OAuthCallbackPage() {
         exchangeCode();
     }, [searchParams, router]);
 
-    // ── Render ──────────────────────────────────────────────────────
 
     return (
         <div className="relative flex min-h-screen items-center justify-center bg-slate-950 px-6">
@@ -142,7 +127,7 @@ export default function OAuthCallbackPage() {
                 {/* Card */}
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8">
 
-                    {/* ── Exchanging: loading spinner ─────────────── */}
+                    {/* Exchanging: loading spinner */}
                     {status === "exchanging" && (
                         <div className="flex flex-col items-center py-6">
                             <Loader2
@@ -158,7 +143,7 @@ export default function OAuthCallbackPage() {
                         </div>
                     )}
 
-                    {/* ── Success: brief confirmation ─────────────── */}
+                    {/* Success: brief confirmation */}
                     {status === "success" && (
                         <div className="flex flex-col items-center py-6">
                             <div
@@ -178,7 +163,7 @@ export default function OAuthCallbackPage() {
                         </div>
                     )}
 
-                    {/* ── Error: message + retry ──────────────────── */}
+                    {/* Error: message + retry */}
                     {status === "error" && (
                         <div className="flex flex-col items-center py-4">
                             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
