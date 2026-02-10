@@ -20,7 +20,7 @@ interface NavLink {
 const NAV_LINKS: NavLink[] = [
     { label: "Home", href: "/" },
     { label: "Documentation", href: "https://github.com/shane-downs/gators-for-honor-senior-project-2026.git", target: "_blank" },
-    { label: "Support", href: "mailto:wilson.goins@ufl.edu, shane.downs@ufl.edu" },
+    { label: "Support", href: "mailto:wilson.goins@ufl.edu,shane.downs@ufl.edu" },
     { label: "About Us", href: "/about" },
 ];
 
