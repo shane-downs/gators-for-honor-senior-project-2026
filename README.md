@@ -49,7 +49,7 @@ cd frontend
 npm install
 
 # Set up environment variables 
-cp .env.example .env.local
+cp .env.local .env.local
 
 # Install backend dependencies
 cd ../backend
