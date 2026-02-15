@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { neon } from "@neondatabase/serverless";
 
+const sql = neon(process.env.DATABASE_URL!);
 const CANVAS_URL     = process.env.NEXT_PUBLIC_CANVAS_URL!;
 const CLIENT_ID      = process.env.NEXT_PUBLIC_CANVAS_CLIENT_ID!;
 const CLIENT_SECRET  = process.env.CANVAS_CLIENT_SECRET!;        
@@ -79,6 +81,35 @@ export async function POST(request: NextRequest) {
         // parse successful token response
         const tokenData: CanvasTokenResponse = await tokenResponse.json();
 
+        // now fetch full profile from Canvas
+        const profileRes = await fetch(`${CANVAS_URL}/api/v1/users/self/profile`,
+        { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
+        const profile = await profileRes.json();        // what we'll store in the database
+
+        // now upsetsert the user into our database (create if new, update if existing)
+        const [dbUser] = await sql`
+        INSERT INTO users (canvas_user_id, name, email, avatar_url, canvas_domain, access_token, refresh_token, token_expires_at)
+        VALUES (
+            ${profile.id},
+            ${profile.name},
+            ${profile.primary_email},
+            ${profile.avatar_url},
+            ${CANVAS_URL},
+            ${tokenData.access_token},
+            ${tokenData.refresh_token},
+            ${new Date(Date.now() + tokenData.expires_in * 1000).toISOString()}
+        )
+        ON CONFLICT (canvas_user_id) DO UPDATE SET
+            name = EXCLUDED.name,
+            email = EXCLUDED.email,
+            avatar_url = EXCLUDED.avatar_url,
+            access_token = EXCLUDED.access_token,
+            refresh_token = EXCLUDED.refresh_token,
+            token_expires_at = EXCLUDED.token_expires_at,
+            updated_at = NOW()
+        RETURNING id, canvas_user_id
+        `;
+
         const response = NextResponse.json({
             success: true,
             user: tokenData.user,     
@@ -86,11 +117,11 @@ export async function POST(request: NextRequest) {
 
         // access token cookie, expires when the token does (1 hour)
         response.cookies.set("canvas_access_token", tokenData.access_token, {
-            httpOnly: true,           // Not accessible via document.cookie
+            httpOnly: true,           // not accessible via document.cookie
             secure:   process.env.NODE_ENV === "production",   // HTTPS only in prod
-            sameSite: "lax",          // Sent with same-site navigations
-            path:     "/",            // Available to all routes
-            maxAge:   tokenData.expires_in,   // 3600 seconds = 1 hour
+            sameSite: "lax",          // sent with same-site navigations
+            path:     "/",            // available to all routes
+            maxAge:   tokenData.expires_in,   // 3600 seconds 
         });
 
         // refresh token cookie, which is to get new access tokens
