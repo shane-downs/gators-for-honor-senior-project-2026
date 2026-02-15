@@ -10,6 +10,8 @@ interface TokenResult {
   canvasDomain: string;
 }
 
+
+// HELPER FUNCTION: Gets a valid access token for the given Canvas user ID, refreshing it if necessary
 export async function getValidToken(canvasUserId: number): Promise<TokenResult> {
   // first look up the user's current tokens
   const rows = await sql`
