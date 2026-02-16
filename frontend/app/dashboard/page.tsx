@@ -14,7 +14,6 @@ import {
     RefreshCw,
     Upload,
     BarChart3,
-    MoreHorizontal,
     ChevronRight,
     Loader2,
 } from "lucide-react";
@@ -494,11 +493,10 @@ export default function DashboardPage() {
                             </Link>
                         </div>
 
-                        <div className="grid grid-cols-[1fr_100px_100px_48px] border-b border-white/[0.06] bg-white/[0.01] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-600">
+                        <div className="grid grid-cols-[1fr_100px_100px] border-b border-white/[0.06] bg-white/[0.01] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-600">
                             <span>Course</span>
                             <span>Students</span>
                             <span>SEB Quizzes</span>
-                            <span />
                         </div>
 
                         {/* each course row */}
@@ -514,7 +512,7 @@ export default function DashboardPage() {
                             courses.map((course) => (
                                 <div
                                     key={course.id}
-                                    className="grid grid-cols-[1fr_100px_100px_48px] items-center border-b border-white/[0.03] px-5 py-3.5 text-[13px] transition-colors hover:bg-white/[0.015]"
+                                    className="grid grid-cols-[1fr_100px_100px] items-center border-b border-white/[0.03] px-5 py-3.5 text-[13px] transition-colors hover:bg-white/[0.015]"
                                 >
                                     <div className="flex flex-col gap-0.5 min-w-0">
                                         <span className="font-semibold text-white truncate">{course.name}</span>
@@ -522,9 +520,6 @@ export default function DashboardPage() {
                                     </div>
                                     <span className="text-slate-500">{course.total_students}</span>
                                     <span className="text-slate-500">{course.seb_quiz_count}</span>
-                                    <button className="flex h-[30px] w-[30px] items-center justify-center rounded-md text-slate-600 transition-all hover:bg-white/[0.04] hover:text-slate-300">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </button>
                                 </div>
                             ))
                         )}

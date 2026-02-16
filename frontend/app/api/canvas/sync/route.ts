@@ -1,1 +1,0 @@
-// api goes here for what happens when you hit "Sync from Canvas" button on dashboard
