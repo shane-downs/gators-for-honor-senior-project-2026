@@ -23,6 +23,12 @@ export interface CanvasNewQuiz {
     };
 }
 
+export interface CanvasClassicQuiz {
+    id: number;
+    title: string;
+    quiz_type: string;      // "assignment" | "practice_quiz" | "graded_survey" | "survey"
+}
+
 export interface DashboardCourse {
     id: number;
     name: string;
@@ -78,8 +84,8 @@ export async function canvasGet<T>(
  * Fetches instructor courses from Canvas, adds quiz count
  *
  * 1. GET /api/v1/courses (teacher enrollments, active, with total_students)
- * 2. For each course, GET quizzes in PARALLEL (Promise.allSettled)
- * 3. Count quizzes 
+ * 2. For each course, GET classic quizzes and new quizzes in PARALLEL (Promise.allSettled)
+ * 3. Count total quizzes 
  * 4. Derive status: "has_quizzes" | "empty"
  */
 export async function fetchCoursesWithQuizCounts(
@@ -94,24 +100,43 @@ export async function fetchCoursesWithQuizCounts(
 
     const results = await Promise.allSettled(
         canvasCourses.map(async (course): Promise<DashboardCourse> => {
-            let quizzes: CanvasNewQuiz[] = [];
 
-            try {
-                quizzes = await canvasGet<CanvasNewQuiz[]>(
+            // fetch Classic Quizzes and New Quizzes in parallel.
+            const [classicResult, newResult] = await Promise.allSettled([
+                canvasGet<CanvasClassicQuiz[]>(
                     domain,
-                    `/api/quiz/v1/courses/${course.id}/quizzes`,
+                    `/api/v1/courses/${course.id}/quizzes`,       // classic Quizzes
                     token
-                );
-            } catch (err) {
+                ),
+                canvasGet<CanvasNewQuiz[]>(
+                    domain,
+                    `/api/quiz/v1/courses/${course.id}/quizzes`,  // new Quizzes
+                    token
+                ),
+            ]);
+
+            // if an endpoint fails, treat as 0 quizzes.
+            const classicQuizzes =
+                classicResult.status === "fulfilled" ? classicResult.value : [];
+            const newQuizzes =
+                newResult.status === "fulfilled" ? newResult.value : [];
+
+            if (classicResult.status === "rejected") {
                 console.warn(
-                    `[canvas-api] Could not fetch quizzes for course ${course.id}:`,
-                    err instanceof Error ? err.message : err
+                    `[canvas-api] Classic quizzes failed for course ${course.id}:`,
+                    classicResult.reason
+                );
+            }
+            if (newResult.status === "rejected") {
+                console.warn(
+                    `[canvas-api] New quizzes failed for course ${course.id}:`,
+                    newResult.reason
                 );
             }
 
-            const quizCount = quizzes.length;
+            const quizCount = classicQuizzes.length + newQuizzes.length;
 
-            let status: DashboardCourse["status"] =
+            const status: DashboardCourse["status"] =
                 quizCount > 0 ? "has_quizzes" : "empty";
 
             return {
@@ -119,7 +144,7 @@ export async function fetchCoursesWithQuizCounts(
                 name: course.name,
                 course_code: course.course_code,
                 total_students: course.total_students ?? 0,
-                quiz_count: quizCount,
+                quiz_count: quizCount,      
                 status,
             };
         })
