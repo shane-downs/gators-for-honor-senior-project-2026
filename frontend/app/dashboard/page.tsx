@@ -9,20 +9,14 @@ import {
     GraduationCap,
     FileText,
     Lock,
-    SlidersHorizontal,
     LogOut,
     Plus,
     RefreshCw,
     Upload,
     BarChart3,
-    MoreHorizontal,
     ChevronRight,
     Loader2,
 } from "lucide-react";
-
-/* ──────────────────────────────────────────────
-   Types
-   ────────────────────────────────────────────── */
 
 interface User {
     id: string;
@@ -36,8 +30,8 @@ interface Course {
     name: string;
     course_code: string;
     total_students: number;
-    seb_quiz_count: number;
-    status: "active" | "setup" | "no_seb";
+    quiz_count: number;
+    status: "has_quizzes" | "empty";
 }
 
 interface ActivityItem {
@@ -48,10 +42,6 @@ interface ActivityItem {
     color: string;
 }
 
-/* ──────────────────────────────────────────────
-   Sidebar nav config
-   ────────────────────────────────────────────── */
-
 const NAV_MAIN = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutGrid, badge: null },
     { label: "Courses", href: "/dashboard/courses", icon: GraduationCap, badge: null },
@@ -60,12 +50,8 @@ const NAV_MAIN = [
 
 const NAV_SEB = [
     { label: "SEB Profiles", href: "/dashboard/seb-profiles", icon: Lock },
-    { label: "Settings", href: "/dashboard/settings", icon: SlidersHorizontal },
 ];
 
-/* ──────────────────────────────────────────────
-   Helper: initials from name
-   ────────────────────────────────────────────── */
 function getInitials(name: string) {
     return name
         .split(" ")
@@ -75,27 +61,6 @@ function getInitials(name: string) {
         .slice(0, 2);
 }
 
-/* ──────────────────────────────────────────────
-   Status badge component
-   ────────────────────────────────────────────── */
-function StatusBadge({ status }: { status: Course["status"] }) {
-    const config = {
-        active: { label: "Active", bg: "bg-green-500/15", text: "text-green-400", dot: "bg-green-400" },
-        setup: { label: "Setup", bg: "bg-yellow-500/12", text: "text-yellow-400", dot: "bg-yellow-400" },
-        no_seb: { label: "No SEB", bg: "bg-white/[0.04]", text: "text-slate-500", dot: "bg-slate-500" },
-    }[status];
-
-    return (
-        <span className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-[11.5px] font-semibold ${config.bg} ${config.text}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
-            {config.label}
-    </span>
-    );
-}
-
-/* ──────────────────────────────────────────────
-   Stat card component
-   ────────────────────────────────────────────── */
 function StatCard({
                       icon: Icon,
                       iconBg,
@@ -103,8 +68,6 @@ function StatCard({
                       value,
                       suffix,
                       label,
-                      change,
-                      changeType,
                       delay,
                   }: {
     icon: React.ElementType;
@@ -113,8 +76,6 @@ function StatCard({
     value: string | number;
     suffix?: string;
     label: string;
-    change: string;
-    changeType: "up" | "neutral";
     delay: string;
 }) {
     return (
@@ -130,67 +91,114 @@ function StatCard({
                 {suffix && <span className="text-base text-slate-500">{suffix}</span>}
             </div>
             <div className="mt-1 text-[12.5px] font-medium text-slate-500">{label}</div>
-            <div
-                className={`absolute right-5 top-5 rounded-md px-2 py-0.5 font-mono text-[11px] font-semibold ${
-                    changeType === "up" ? "bg-green-500/15 text-green-400" : "bg-white/[0.04] text-slate-500"
-                }`}
-            >
-                {change}
-            </div>
         </div>
     );
 }
 
-/* ──────────────────────────────────────────────
-   Main dashboard page
-   ────────────────────────────────────────────── */
 export default function DashboardPage() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
     const [courses, setCourses] = useState<Course[]>([]);
     const [activity, setActivity] = useState<ActivityItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
     const [courseCount, setCourseCount] = useState(0);
     const [quizCount, setQuizCount] = useState(0);
     const [studentCount, setStudentCount] = useState(0);
 
-    /* ── Fetch dashboard data ── */
-    useEffect(() => {
-        async function loadDashboard() {
-            try {
-                const res = await fetch("/api/dashboard");
-                if (res.status === 401) {
-                    router.replace("/login");
-                    return;
-                }
-                if (!res.ok) throw new Error("Failed to load dashboard");
+    // to get the dashboard data
+    async function loadDashboard() {
+        setLoading(true);
+        setError(null);
 
-                const data = await res.json();
-                setUser(data.user);
-                setCourses(data.courses);
-                setActivity(data.activity);
-                setCourseCount(data.courses.length);
-                setQuizCount(data.courses.reduce((sum: number, c: Course) => sum + c.seb_quiz_count, 0));
-                setStudentCount(data.courses.reduce((sum: number, c: Course) => sum + c.total_students, 0));
-            } catch (err) {
-                console.error("Dashboard load error:", err);
-            } finally {
-                setLoading(false);
+        try {
+            const [userRes, coursesRes, activityRes] = await Promise.all([
+                fetch("/api/user/me"),
+                fetch("/api/canvas/courses"),
+                fetch("/api/activity"),
+            ]);
+
+            // if any route returned 401, redirect to login
+            if (userRes.status === 401 || coursesRes.status === 401 || activityRes.status === 401) {
+                router.replace("/login");
+                return;
             }
+
+            // check for other errors
+            if (!userRes.ok || !coursesRes.ok || !activityRes.ok) {
+                const failedRes = [userRes, coursesRes, activityRes].find((r) => !r.ok);
+                const body = await failedRes!.json().catch(() => ({}));
+                throw new Error(body.error || "Failed to load dashboard");
+            }
+
+            const [userData, coursesData, activityData] = await Promise.all([
+                userRes.json(),
+                coursesRes.json(),
+                activityRes.json(),
+            ]);
+
+            setUser(userData.user);
+            setCourses(coursesData.courses);
+            setActivity(activityData.activity);
+            setCourseCount(coursesData.courses.length);
+            setQuizCount(
+                coursesData.courses.reduce(
+                    (sum: number, c: Course) => sum + c.quiz_count,   
+                    0
+                )
+            );
+            setStudentCount(
+                coursesData.courses.reduce(
+                    (sum: number, c: Course) => sum + c.total_students,
+                    0
+                )
+            );
+        } catch (err) {
+            console.error("Dashboard load error:", err);
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Something went wrong. Please try again."
+            );
+        } finally {
+            setLoading(false);
         }
+    }
 
+    // fetch on entry
+    useEffect(() => {
         loadDashboard();
-    }, [router]);
+    }, []);
 
-    /* ── Sync courses from Canvas ── */
+    // sync course info from Canvas
     async function handleSync() {
         setSyncing(true);
         try {
-            const res = await fetch("/api/canvas/sync", { method: "POST" });
+            const res = await fetch("/api/canvas/courses");
+            if (res.status === 401) {       // reauthenticate
+                router.replace("/login");
+                return;
+            }
+
             if (res.ok) {
                 const data = await res.json();
                 setCourses(data.courses);
+
+                // recalculate stat counts from the fresh course data
+                setCourseCount(data.courses.length);
+                setQuizCount(
+                    data.courses.reduce(
+                        (sum: number, c: Course) => sum + c.quiz_count,    
+                        0
+                    )
+                );
+                setStudentCount(
+                    data.courses.reduce(
+                        (sum: number, c: Course) => sum + c.total_students,
+                        0
+                    )
+                );
             }
         } catch (err) {
             console.error("Sync failed:", err);
@@ -199,13 +207,13 @@ export default function DashboardPage() {
         }
     }
 
-    /* ── Sign out ── */
+    // sign out
     async function handleSignOut() {
         await fetch("/api/auth/logout", { method: "POST" });
-        router.replace("/login");
+        router.replace("/");
     }
 
-    /* ── Loading state ── */
+    // loading state
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#0a0e1a]">
@@ -217,12 +225,45 @@ export default function DashboardPage() {
         );
     }
 
+    if (error) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#0a0e1a]">
+                <div className="flex flex-col items-center gap-5 rounded-[16px] border border-white/[0.06] bg-white/[0.025] px-10 py-10 text-center">
+                    <div
+                        className="flex h-12 w-12 items-center justify-center rounded-full"
+                        style={{ background: "rgba(250, 70, 22, 0.15)" }}
+                    >
+                        <Shield className="h-6 w-6 text-[#FA4616]" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <h2 className="text-lg font-bold text-white">Unable to Load Dashboard</h2>
+                        <p className="max-w-sm text-sm text-slate-500">{error}</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => loadDashboard()}
+                            className="inline-flex items-center gap-2 rounded-[10px] bg-[#FA4616] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_2px_12px_rgba(250,70,22,0.3)] transition-all hover:-translate-y-px hover:bg-[#e03e12]"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            Retry
+                        </button>
+                        <button
+                            onClick={handleSignOut}
+                            className="inline-flex items-center gap-2 rounded-[10px] border border-white/[0.06] bg-white/[0.025] px-5 py-2.5 text-[13px] font-semibold text-slate-400 transition-all hover:border-white/[0.12] hover:text-slate-300"
+                        >
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     const activePath = "/dashboard";
 
     return (
         <div className="min-h-screen bg-[#0a0e1a] text-slate-200">
 
-            {/* ════ Ambient background ════ */}
             <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
                 <div
                     className="absolute left-1/2 top-0 h-[600px] w-[900px] -translate-x-1/2 -translate-y-1/3 rounded-full opacity-[0.06]"
@@ -234,11 +275,9 @@ export default function DashboardPage() {
                 />
             </div>
 
-            {/* ════ SIDEBAR ════ */}
-            <aside className="fixed left-0 top-0 z-50 flex h-screen w-[260px] flex-col border-r border-white/[0.06] bg-[#0a0e1a]/95 backdrop-blur-xl">
+            <aside className="fixed left-0 top-0 z-50 hidden h-screen w-[260px] flex-col border-r border-white/[0.06] bg-[#0a0e1a]/95 backdrop-blur-xl lg:flex">
 
-                {/* Logo */}
-                <Link href="/" className="group flex items-center gap-3 border-b border-white/[0.06] px-5 py-6">
+                <Link href="/dashboard" className="group flex items-center gap-3 border-b border-white/[0.06] px-5 py-6">
                     <div
                         className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] shadow-lg transition-transform group-hover:scale-105"
                         style={{
@@ -248,7 +287,7 @@ export default function DashboardPage() {
                     >
                         <Shield className="h-5 w-5 text-white" strokeWidth={2.5} />
                     </div>
-                    <div className="flex flex-col leading-none">
+                    <div className="flex flex-col leading-none gap-1.5">
                         <span className="text-[15px] font-bold tracking-tight text-white">Gators For Honor</span>
                         <span className="text-[9px] font-semibold uppercase tracking-[0.12em]" style={{ color: "rgba(250, 70, 22, 0.7)" }}>
               Canvas Middleware
@@ -323,25 +362,101 @@ export default function DashboardPage() {
                 </div>
             </aside>
 
-            {/* ════ MAIN CONTENT ════ */}
-            <main className="relative z-10 ml-[260px] px-10 pb-16 pt-8">
+            {/* mobile nav */}
+            <header className="sticky top-0 z-50 flex items-center justify-between border-b border-white/[0.06] bg-[#0a0e1a]/95 px-4 py-3 backdrop-blur-xl lg:hidden">
+                {/* CHANGE 4: Logo also links to /dashboard here */}
+                <Link href="/dashboard" className="flex items-center gap-2.5">
+                    <div
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[9px] shadow-lg"
+                        style={{
+                            background: "linear-gradient(135deg, #FA4616 0%, #0021A5 100%)",
+                            boxShadow: "0 4px 16px rgba(250, 70, 22, 0.25)",
+                        }}
+                    >
+                        <Shield className="h-4 w-4 text-white" strokeWidth={2.5} />
+                    </div>
+                    <span className="text-[14px] font-bold tracking-tight text-white">Gators For Honor</span>
+                </Link>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleSync}
+                        disabled={syncing}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-[12px] font-semibold text-slate-500 transition-all hover:border-white/[0.12] hover:text-slate-300 disabled:opacity-50"
+                    >
+                        <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+                        <span className="hidden sm:inline">Sync</span>
+                    </button>
+                    <Link
+                        href="/dashboard/create-quiz"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#FA4616] px-3 py-2 text-[12px] font-semibold text-white shadow-[0_2px_12px_rgba(250,70,22,0.3)] transition-all hover:bg-[#e03e12]"
+                    >
+                        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                        <span className="hidden sm:inline">New Quiz</span>
+                    </Link>
+                    <button
+                        onClick={handleSignOut}
+                        className="inline-flex items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.025] p-2 text-slate-500 transition-all hover:border-white/[0.12] hover:text-slate-300"
+                    >
+                        <LogOut className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            </header>
+
+            {/* Mobile sub-nav with horizontal scroll for page links */}
+            <nav className="sticky top-[57px] z-40 flex gap-1 overflow-x-auto border-b border-white/[0.06] bg-[#0a0e1a]/95 px-4 py-2 backdrop-blur-xl lg:hidden">
+                {NAV_MAIN.map((item) => {
+                    const isActive = activePath === item.href;
+                    return (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={`flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all ${
+                                isActive
+                                    ? "bg-[rgba(250,70,22,0.15)] text-white"
+                                    : "text-slate-500 hover:text-slate-300"
+                            }`}
+                        >
+                            <item.icon className={`h-3.5 w-3.5 ${isActive ? "text-[#FA4616]" : "opacity-60"}`} strokeWidth={1.8} />
+                            {item.label}
+                        </Link>
+                    );
+                })}
+                {NAV_SEB.map((item) => (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-slate-500 transition-all hover:text-slate-300"
+                    >
+                        <item.icon className="h-3.5 w-3.5 opacity-60" strokeWidth={1.8} />
+                        {item.label}
+                    </Link>
+                ))}
+            </nav>
+
+            {/* main content */}
+            <main className="relative z-10 px-4 pb-16 pt-6 sm:px-6 lg:ml-[260px] lg:px-10 lg:pt-8">
 
                 {/* ── Top bar ── */}
                 <div className="mb-8 flex items-center justify-between">
-                    <h1 className="text-[26px] font-bold tracking-tight text-white">
-                        Dashboard <span className="font-normal text-slate-600">· Spring 2026</span>
+                    <h1 className="text-[22px] font-bold tracking-tight text-white sm:text-[26px]">
+                        Dashboard
                     </h1>
-                    <div className="flex items-center gap-2.5">
+                    {/*
+                     * Desktop-only action buttons (mobile ones are in the top nav).
+                     * Hidden below `lg` to avoid duplicating buttons.
+                     */}
+                    <div className="hidden items-center gap-2.5 lg:flex">
                         <button
                             onClick={handleSync}
                             disabled={syncing}
-                            className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-[13px] font-semibold text-slate-500 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-slate-300 disabled:opacity-50"
+                            className="cursor-pointer inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-[13px] font-semibold text-slate-500 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-slate-300 disabled:opacity-50"
                         >
                             <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
                             Sync Canvas
                         </button>
                         <Link
-                            href="/dashboard/quizzes/new"
+                            href="/dashboard/create-quiz"
                             className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#FA4616] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_2px_12px_rgba(250,70,22,0.3)] transition-all hover:-translate-y-px hover:bg-[#e03e12] hover:shadow-[0_4px_20px_rgba(250,70,22,0.4)]"
                         >
                             <Plus className="h-4 w-4" strokeWidth={2.5} />
@@ -350,16 +465,14 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* ── Stats grid ── */}
-                <div className="mb-7 grid grid-cols-4 gap-4">
+                {/* stats grid  */}
+                <div className="mb-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <StatCard
                         icon={GraduationCap}
                         iconBg="rgba(250, 70, 22, 0.15)"
                         iconColor="#FA4616"
                         value={courseCount}
                         label="Active Courses"
-                        change="Spring '26"
-                        changeType="neutral"
                         delay="0.05s"
                     />
                     <StatCard
@@ -367,9 +480,7 @@ export default function DashboardPage() {
                         iconBg="rgba(0, 33, 165, 0.15)"
                         iconColor="#6d8fff"
                         value={quizCount}
-                        label="SEB Quizzes"
-                        change={`${quizCount} total`}
-                        changeType="up"
+                        label="Quizzes"
                         delay="0.1s"
                     />
                     <StatCard
@@ -378,27 +489,14 @@ export default function DashboardPage() {
                         iconColor="#22c55e"
                         value={studentCount}
                         label="Students Enrolled"
-                        change={`${courses.length} courses`}
-                        changeType="up"
                         delay="0.15s"
-                    />
-                    <StatCard
-                        icon={BarChart3}
-                        iconBg="rgba(234, 179, 8, 0.12)"
-                        iconColor="#eab308"
-                        value="99"
-                        suffix="%"
-                        label="SEB Compliance"
-                        change="+2%"
-                        changeType="up"
-                        delay="0.2s"
                     />
                 </div>
 
-                {/* ── Two-column layout ── */}
-                <div className="grid grid-cols-[1fr_380px] gap-5">
+                {/* two col layout for courses and quick actions/recent activity sections */}
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_380px]">
 
-                    {/* ── Courses table ── */}
+                    {/* course list  */}
                     <div className="overflow-hidden rounded-[14px] border border-white/[0.06] bg-white/[0.025]">
                         <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
                             <h2 className="text-sm font-semibold text-white">Your Courses</h2>
@@ -407,42 +505,39 @@ export default function DashboardPage() {
                             </Link>
                         </div>
 
-                        {/* Table header */}
-                        <div className="grid grid-cols-[1fr_100px_100px_90px_48px] border-b border-white/[0.06] bg-white/[0.01] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-600">
+                        <div className="grid grid-cols-[1fr_100px_100px] border-b border-white/[0.06] bg-white/[0.01] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-600">
                             <span>Course</span>
                             <span>Students</span>
-                            <span>SEB Quizzes</span>
-                            <span>Status</span>
-                            <span />
+                            <span>Quizzes</span>
                         </div>
 
-                        {/* Course rows */}
+                        {/* each course row */}
                         {courses.length === 0 ? (
                             <div className="px-5 py-12 text-center text-sm text-slate-600">
-                                No courses found. Click <strong className="text-slate-400">Sync Canvas</strong> to import your courses.
+                                No courses found. Click{" "}
+                                <button onClick={handleSync} className="cursor-pointer font-semibold text-slate-400 hover:text-[#FA4616] transition-colors">
+                                    Sync Canvas
+                                </button>{" "}
+                                to import your courses.
                             </div>
                         ) : (
                             courses.map((course) => (
                                 <div
                                     key={course.id}
-                                    className="grid grid-cols-[1fr_100px_100px_90px_48px] items-center border-b border-white/[0.03] px-5 py-3.5 text-[13px] transition-colors hover:bg-white/[0.015]"
+                                    className="grid grid-cols-[1fr_100px_100px] items-center border-b border-white/[0.03] px-5 py-3.5 text-[13px] transition-colors hover:bg-white/[0.015]"
                                 >
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="font-semibold text-white">{course.name}</span>
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                        <span className="font-semibold text-white truncate">{course.name}</span>
                                         <span className="font-mono text-[11.5px] text-slate-600">{course.course_code}</span>
                                     </div>
                                     <span className="text-slate-500">{course.total_students}</span>
-                                    <span className="text-slate-500">{course.seb_quiz_count}</span>
-                                    <StatusBadge status={course.status} />
-                                    <button className="flex h-[30px] w-[30px] items-center justify-center rounded-md text-slate-600 transition-all hover:bg-white/[0.04] hover:text-slate-300">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </button>
+                                    <span className="text-slate-500">{course.quiz_count}</span>
                                 </div>
                             ))
                         )}
                     </div>
 
-                    {/* ── Right column ── */}
+                    {/* right column in the 2 col layout  */}
                     <div className="flex flex-col gap-5">
 
                         {/* Quick Actions */}
@@ -458,7 +553,7 @@ export default function DashboardPage() {
                                         iconColor: "#FA4616",
                                         title: "Create SEB Quiz",
                                         desc: "Build a new locked-down assessment",
-                                        href: "/dashboard/quizzes/new",
+                                        href: "/dashboard/create-quiz",
                                     },
                                     {
                                         icon: Upload,
@@ -485,11 +580,11 @@ export default function DashboardPage() {
                                         <div className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-[9px]" style={{ background: action.iconBg }}>
                                             <action.icon className="h-[18px] w-[18px]" style={{ color: action.iconColor }} strokeWidth={2} />
                                         </div>
-                                        <div className="flex flex-col gap-0.5">
+                                        <div className="flex flex-col gap-0.5 min-w-0">
                                             <span className="text-[13px] font-semibold text-white">{action.title}</span>
                                             <span className="text-[11.5px] text-slate-600">{action.desc}</span>
                                         </div>
-                                        <ChevronRight className="ml-auto h-4 w-4 -translate-x-1 text-slate-600 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                                        <ChevronRight className="ml-auto h-4 w-4 flex-shrink-0 -translate-x-1 text-slate-600 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
                                     </Link>
                                 ))}
                             </div>

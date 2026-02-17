@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";          
 import { neon } from "@neondatabase/serverless";
+import { createSession, getSession } from "@/lib/session";
 
 const sql = neon(process.env.DATABASE_URL!);
 const CANVAS_URL     = process.env.NEXT_PUBLIC_CANVAS_URL!;
@@ -124,9 +126,17 @@ export async function POST(request: NextRequest) {
             maxAge:   60 * 60 * 24 * 30,     // expires after 30 days which is as long as the refresh token is valid
         });
 
-        response.cookies.delete("canvas_oauth_state");
+        await createSession(dbUser.canvas_user_id);
 
-        return response;
+        const cookieStore = await cookies();
+        cookieStore.delete("canvas_oauth_state");
+
+        // return success bc the gfh_session cookie is already set by createSession() in lib/session.ts
+        return NextResponse.json({
+            success: true,
+            user: tokenData.user,     
+        });
+
 
     } catch (error) {
         console.error("[OAuth] Unexpected error during token exchange:", error);
