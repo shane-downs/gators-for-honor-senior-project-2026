@@ -28,8 +28,8 @@ export interface DashboardCourse {
     name: string;
     course_code: string;
     total_students: number;
-    seb_quiz_count: number;
-    status: "active" | "setup" | "no_seb";
+    quiz_count: number;
+    status: "has_quizzes" | "empty";
 }
 
 
@@ -75,12 +75,12 @@ export async function canvasGet<T>(
 
 
 /**
- * Fetches instructor courses from Canvas, adds SEB quiz count
+ * Fetches instructor courses from Canvas, adds quiz count
  *
  * 1. GET /api/v1/courses (teacher enrollments, active, with total_students)
  * 2. For each course, GET quizzes in PARALLEL (Promise.allSettled)
- * 3. Count quizzes where require_student_access_code === true
- * 4. Derive status: "active" | "setup" | "no_seb"
+ * 3. Count quizzes 
+ * 4. Derive status: "has_quizzes" | "empty"
  */
 export async function fetchCoursesWithQuizCounts(
     domain: string,
@@ -109,21 +109,17 @@ export async function fetchCoursesWithQuizCounts(
                 );
             }
 
-            const sebQuizCount = quizzes.filter(
-                (q) => q.quiz_settings?.require_student_access_code === true
-            ).length;
+            const quizCount = quizzes.length;
 
-            let status: DashboardCourse["status"];
-            if (sebQuizCount > 0) status = "active";
-            else if (quizzes.length > 0) status = "setup";
-            else status = "no_seb";
+            let status: DashboardCourse["status"] =
+                quizCount > 0 ? "has_quizzes" : "empty";
 
             return {
                 id: course.id,
                 name: course.name,
                 course_code: course.course_code,
                 total_students: course.total_students ?? 0,
-                seb_quiz_count: sebQuizCount,
+                quiz_count: quizCount,
                 status,
             };
         })

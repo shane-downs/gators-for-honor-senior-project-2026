@@ -30,8 +30,8 @@ interface Course {
     name: string;
     course_code: string;
     total_students: number;
-    seb_quiz_count: number;
-    status: "active" | "setup" | "no_seb";
+    quiz_count: number;
+    status: "has_quizzes" | "empty";
 }
 
 interface ActivityItem {
@@ -144,7 +144,7 @@ export default function DashboardPage() {
             setCourseCount(coursesData.courses.length);
             setQuizCount(
                 coursesData.courses.reduce(
-                    (sum: number, c: Course) => sum + c.seb_quiz_count,
+                    (sum: number, c: Course) => sum + c.quiz_count,   
                     0
                 )
             );
@@ -189,7 +189,7 @@ export default function DashboardPage() {
                 setCourseCount(data.courses.length);
                 setQuizCount(
                     data.courses.reduce(
-                        (sum: number, c: Course) => sum + c.seb_quiz_count,
+                        (sum: number, c: Course) => sum + c.quiz_count,    
                         0
                     )
                 );
@@ -480,7 +480,7 @@ export default function DashboardPage() {
                         iconBg="rgba(0, 33, 165, 0.15)"
                         iconColor="#6d8fff"
                         value={quizCount}
-                        label="SEB Quizzes"
+                        label="Quizzes"
                         delay="0.1s"
                     />
                     <StatCard
@@ -508,7 +508,7 @@ export default function DashboardPage() {
                         <div className="grid grid-cols-[1fr_100px_100px] border-b border-white/[0.06] bg-white/[0.01] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-600">
                             <span>Course</span>
                             <span>Students</span>
-                            <span>SEB Quizzes</span>
+                            <span>Quizzes</span>
                         </div>
 
                         {/* each course row */}
@@ -531,7 +531,7 @@ export default function DashboardPage() {
                                         <span className="font-mono text-[11.5px] text-slate-600">{course.course_code}</span>
                                     </div>
                                     <span className="text-slate-500">{course.total_students}</span>
-                                    <span className="text-slate-500">{course.seb_quiz_count}</span>
+                                    <span className="text-slate-500">{course.quiz_count}</span>
                                 </div>
                             ))
                         )}
