@@ -113,31 +113,43 @@ export default function DashboardPage() {
         setError(null);
 
         try {
-            const res = await fetch("/api/dashboard");
+            const [userRes, coursesRes, activityRes] = await Promise.all([
+                fetch("/api/user/me"),
+                fetch("/api/canvas/courses"),
+                fetch("/api/activity"),
+            ]);
 
-            if (res.status === 401) {           // means we need to reauthenticate
+            // if any route returned 401, redirect to login
+            if (userRes.status === 401 || coursesRes.status === 401 || activityRes.status === 401) {
                 router.replace("/login");
                 return;
             }
 
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
+            // check for other errors
+            if (!userRes.ok || !coursesRes.ok || !activityRes.ok) {
+                const failedRes = [userRes, coursesRes, activityRes].find((r) => !r.ok);
+                const body = await failedRes!.json().catch(() => ({}));
                 throw new Error(body.error || "Failed to load dashboard");
             }
 
-            const data = await res.json();
-            setUser(data.user);
-            setCourses(data.courses);
-            setActivity(data.activity);
-            setCourseCount(data.courses.length);
+            const [userData, coursesData, activityData] = await Promise.all([
+                userRes.json(),
+                coursesRes.json(),
+                activityRes.json(),
+            ]);
+
+            setUser(userData.user);
+            setCourses(coursesData.courses);
+            setActivity(activityData.activity);
+            setCourseCount(coursesData.courses.length);
             setQuizCount(
-                data.courses.reduce(
+                coursesData.courses.reduce(
                     (sum: number, c: Course) => sum + c.seb_quiz_count,
                     0
                 )
             );
             setStudentCount(
-                data.courses.reduce(
+                coursesData.courses.reduce(
                     (sum: number, c: Course) => sum + c.total_students,
                     0
                 )
@@ -163,7 +175,7 @@ export default function DashboardPage() {
     async function handleSync() {
         setSyncing(true);
         try {
-            const res = await fetch("/api/canvas/sync", { method: "POST" });        // TODO in /app/api/canvas/sync/route.ts
+            const res = await fetch("/api/canvas/courses");
             if (res.status === 401) {       // reauthenticate
                 router.replace("/login");
                 return;
@@ -197,7 +209,7 @@ export default function DashboardPage() {
 
     // sign out
     async function handleSignOut() {
-        await fetch("/api/auth/logout", { method: "POST" });        // TODO in /app/api/auth/logout/route.ts
+        await fetch("/api/auth/logout", { method: "POST" });
         router.replace("/");
     }
 
